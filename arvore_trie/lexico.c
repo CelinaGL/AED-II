@@ -3,7 +3,7 @@
 #include <string.h>
 #include <stdbool.h>
 
-#define AF 26
+#define AF 256
 #define TAMAP 100
 
 struct Node{
@@ -11,7 +11,7 @@ struct Node{
     int feeling; // Bom = 1 || Neutro = 0 || Ruim = -1
     char tipo[10];
     bool end; 
-    struct Nodo *next[AF];
+    struct Node *next[AF];
 };
 
 typedef struct Node Nodo;
@@ -19,27 +19,25 @@ typedef struct Node Nodo;
 int menu();
 Nodo* createTree(); 
 void insert( Nodo* root, char* word, int f, char m_a, char* tipo );
-void search( Nodo* root, char* word );
+Nodo* search( Nodo* root, char* word );
+void save(FILE* out, Nodo* root, char* buffer, int depth);
 
 int main() {
     FILE* arquivo;
-    Nodo* root = NULL;
+    Nodo* root = createTree();
     int m, f;
     char word[TAMAP], tipo[10], m_a;
 
-    root = createTree;
-
     arquivo = fopen("lexico_v3.0.txt", "r");
-    for ( int i = 0; i < 32191; i++ ) {
+    char linha[256];
+    while (fgets(linha, sizeof(linha), arquivo)) {
+        linha[strcspn(linha, "\n")] = 0;
 
-        fscanf( "%[^\n]s,", word );
-        fscanf( "%[^\n]s,", tipo );
-        fscanf("%d,", &f );
-        fscanf( "%c", m_a );
-        getchar();
+    if ( sscanf(linha, "%99[^,],%9[^,],%d,%c", word, tipo, &f, &m_a) == 4 ) {
+        printf( "Inserindo: %s, %s, %d, %c\n", word, tipo, f, m_a );
+        insert( root, word, f, m_a, tipo );
     }
-
-    insert( root, word, f, m_a, tipo );
+} 
 
     fclose(arquivo);
 
@@ -49,13 +47,44 @@ int main() {
         {
         case 1:
             printf( "Digite a palavra: " );
-            fgets( word, TAMAP, stdin );
-            search( root );
+            scanf( "%s", word );
+            Nodo* r = search( root, word );
+
+            if ( r && r->end ){
+                printf("Polaridade de '%s' = %d, tipo = %s, m_a = %c\n", word, r->feeling, r->tipo, r->m_a);
+            } else {
+                printf( "Palavra '%s' nao encontrada!\n", word );
+            }
             break;
+
         case 2:
+            printf("Digite a palavra: ");
+            scanf("%s", word);
+            Nodo* ra = search( root, word );
+
+            if (ra && ra->end) {
+                printf("Nova polaridade: ");
+                scanf("%d", &f);
+                ra->feeling = f;
+                printf("Polaridade de '%s' atualizada para %d\n", word, f);
+            } else {
+                printf("Palavra '%s' nao encontrada!\n", word);
+            }
             break;
+
         case 3:
+            FILE* o = fopen("lexico_editado.txt", "w");
+            if ( !o ) {
+                perror("Erro ao salvar arquivo");
+                break;
+            }
+            char buffer[TAMAP];
+            save( o, root, buffer, 0 );
+
+            fclose(o);
+            printf( "Arquivo salvo em lexico_editado.txt\n" );
             break;
+
         case 4:
             exit(0);
             break;
@@ -74,16 +103,19 @@ int menu() {
         printf("\t3.Salvamento de arquivo\n");
         printf("\t4.Sair\n");
         printf("Escolha: ");
-        scanf( "%d",m);
+        scanf( "%d", &m);
         getchar();
-    } while( m <= 0 || m> 5 );
+    } while( m <= 0 || m > 4 );
+    return m;
 }
 
 Nodo* createTree() {
     Nodo *node = (Nodo *)malloc( sizeof(Nodo) );
-    node->letter = NULL;
-    node->feeling = NULL;
+    node->letter = '\0';
+    node->feeling = 0;
     node->end = false;
+    node->tipo[0] = '\0';
+    node->m_a = '\0';
     for ( int i = 0; i < AF; i++ ) {
         node->next[i] = NULL;
     }
@@ -94,15 +126,13 @@ void insert( Nodo* root, char* word, int f, char m_a, char* tipo ) {
     Nodo *puppet = root;
 
     while ( *word ) {
-        int l = *word - 'a';
+        unsigned char l = (unsigned char)*word;
 
         if ( !puppet->next[l] ) {
             puppet->next[l] = (Nodo *)malloc(sizeof(Nodo));
             puppet->next[l]->letter = *word;
             puppet->next[l]->feeling = 0;
             puppet->next[l]->end = false;
-            puppet->next[l]->m_a = m_a;
-            strcpy(tipo, puppet->next[l]->tipo);
 
             for ( int i = 0; i < AF; i++ ) {
                 puppet->next[l]->next[i] = NULL;
@@ -113,21 +143,43 @@ void insert( Nodo* root, char* word, int f, char m_a, char* tipo ) {
     }
     puppet->end = true;
     puppet->feeling = f;
+    puppet->m_a = m_a;
+    strcpy(puppet->tipo, tipo);
 }
 
-void search( Nodo* root, char* word ) {
+Nodo* search( Nodo* root, char* word ) {
     Nodo* puppet = root;
 
     while ( *word ) {
-        int l = *word - 'a';
-
+        unsigned char l = (unsigned char)*word;
         if ( !puppet->next[l] ) {
-            return;
+            return NULL;
         }
         puppet = puppet->next[l];
         word++;
     }
    
-    printf( "Polaridade da palavra: %d", puppet->feeling );
-    
+    return puppet;    
 }
+
+void save( FILE* out, Nodo* root, char* buffer, int depth ) {
+    if ( !root ) {
+        return;
+    }
+
+    if ( root->end ) {
+        buffer[depth] = '\0';
+        fprintf( out, "%s,%s,%d,%c\n", buffer, root->tipo, root->feeling, root->m_a );
+    }
+
+    for ( int i = 0; i < AF; i++ ) {
+        if ( root->next[i] ) {
+            buffer[depth] = root->next[i]->letter;
+            save( out, root->next[i], buffer, depth + 1 );
+        }
+    }
+}
+
+/*
+
+*/

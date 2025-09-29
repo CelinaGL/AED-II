@@ -3,63 +3,53 @@
 #include <string.h>
 #include <stdbool.h>
 
-#define AF 
+#define AF 26
 #define TAMANHO_PALAVRA 100
 
 struct Node{
     char letter;
     int feeling; // Bom = 1 || Neutro = 0 || Ruim = -1 
     bool end; 
-    struct Nodo[AF] *next;
+    struct Node *next[AF];
 };
 
 typedef struct Node Nodo;
 
-int menu();
 Nodo* createTree(); 
 void insert( Nodo* root, char* word, int s );
 bool search( Nodo* root, char* word );
+Nodo* keysWithPrefix( Nodo* root, char* pre );
+void freeTrie(Nodo* node);
 
 int main() {
-    int m;
+    Nodo* root = createTree();
 
-     for ( ; ; ) {
-        m = menu();
-        switch ( m )
-        {
-        case 1:
-            break;
-        case 2:
-            break;
-        case 3:
-            break;
-        case 4:
-            exit(0);
-            break;
-        }
-    }
+    insert(root, "casa", 2);
+    insert(root, "carro", 1);
+    insert(root, "cachorro", 0);
+    insert(root, "gato", -1);
+    insert(root, "cobra", -2);
+    insert(root, "casar", -2);
+
+    printf("Busca por 'casa': %s\n", search(root, "casa") ? "Encontrada" : "Nao encontrada");
+    printf("Busca por 'co': %s\n", search(root, "co") ? "Encontrada" : "Nao encontrada");
+
+    //printf("\nPalavras com prefixo 'ca':\n");
+    //keysWithPrefix(root, "ca");
+
+    //printf("\nPalavras com prefixo 'co':\n");
+    //printWordsWithPrefix(root, "co");
+
+    freeTrie(root);
+    return 0;
 
     return 0;
 }
 
-int menu() {
-    int m;
-    do {
-        printf("\t### Menu ###\n");
-        printf("\t1.Busca de polaridade\n");
-        printf("\t2.Edicao de polaridade\n");
-        printf("\t3.Salvamento de arquivo\n");
-        printf("\t4.Sair\n");
-        printf("Escolha: ");
-        scanf( "%d",m);
-        getchar();
-    } while( m <= 0 || m> 5 );
-}
-
 Nodo* createTree() {
     Nodo *node = (Nodo *)malloc( sizeof(Nodo) );
-    node->letter = NULL;
-    node->feeling = NULL;
+    node->letter = '-';
+    node->feeling = 0;
     node->end = false;
     for ( int i = 0; i < AF; i++ ) {
         node->next[i] = NULL;
@@ -103,4 +93,25 @@ bool search( Nodo* root, char* word ) {
     }
    
     return puppet->end;
+}
+Nodo* keysWithPrefix( Nodo* root, char* pre ){
+    Nodo* puppet = root;
+
+    while ( *pre ) {
+        int l = *pre - 'a';
+
+        if ( !puppet->next[l] ) {
+            return NULL;
+        }
+        puppet = puppet->next[l];
+        pre++;
+    }
+   
+    return puppet;
+}
+
+void freeTrie(Nodo* node) {
+    if (!node) return;
+    for (int i = 0; i < AF; i++) freeTrie(node->next[i]);
+    free(node);
 }
