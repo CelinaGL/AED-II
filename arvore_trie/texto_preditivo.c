@@ -3,132 +3,107 @@
 #include <string.h>
 #include <stdbool.h>
 
-#define AF 8
+#define AF 10
 #define TAMAP 100
 #define QUANP 10000
 
-struct Node{
-    int numero;
+struct ListaPalavras { //Lista encadeada para guardar as palavras
+    char word[100];
+    struct ListaPalavras* next;
+};
+typedef struct ListaPalavras Palavras;
+
+struct Node {
     bool end; 
-    char word[TAMAP][QUANP];
+    Palavras* words;
     struct Node *next[AF];
 };
-
 typedef struct Node Nodo;
 
-int menu();
 Nodo* createTree(); 
+Palavras* createLista( char* word );
 void freeTrie( Nodo* node );
 void insert( Nodo* root, char* word );
 Nodo* search( Nodo* root, char* word );
-char digitosEspecias( char l );
+char digitosEspeciais( unsigned char *p, int *bytes_consumidos );
 int cDigito( char l );
-
+void listar( Nodo* root );
 
 int main() {
     FILE* arquivo;
     Nodo* root = createTree();
-    int m, f;
     char word[TAMAP];
 
     arquivo = fopen("dicionario.txt", "r");
     while ( fgets( word, sizeof(word), arquivo ) ) {
-        int t = strlen(word);
+        size_t t = strlen(word);
         word[t - 1] = '\0';
 
-        printf( "Inserindo: %s\n", word ); //Usado pra testar se estava inserindo ou nao
+        //printf( "Inserindo: %s\n", word ); //Usado pra testar se estava inserindo ou nao
         insert( root, word );
     } 
-
     fclose(arquivo);
 
-    for ( ; ; ) {
-        m = menu();
-        switch ( m ) {
-            case 1: {
-                printf( "Digite a palavra: " );
-                fgets( word, TAMAP, stdin );
-                int t = strlen(word);
-                word[t - 1] = '\0';
+    char num[TAMAP];
+    printf( "Digite um prefixo: " );
+    scanf( "%[^\n]s", num );
 
-                Nodo* r = search( root, word );
-
-                if ( r && r->end ){
-                    printf( "Palavra: '%s'\n", word );
-                } else {
-                   printf( "Palavra nao encontrada\n" );
-                }
-                break;
-            }
-
-            case 2: {
-                printf( "Digite a palavra: " );
-                scanf( "%s", word );
-                Nodo* ra = search( root, word );
-
-                if (ra && ra->end) {
-                    printf("Nova polaridade: ");
-                    scanf("%d", &f);
-                    printf( "Polaridade de '%s' atualizada para \n", word );
-                } else {
-                    printf( "Palavra nao encontrada\n" );
-                }
-                break;
-            }
-
-            case 3: {
-                freeTrie( root );
-                exit(0);
-            }
-        
-            case 4: {
-                freeTrie( root );
-                exit(0);
-                break;
-            }
+    Nodo* found = search( root, num );
+    if (found) {
+        printf( "Palavras com o prefixo %s:\n", num );
+        listar( found );
+    } else {
+        printf( "Nenhuma palavra encontrada\n" );
         }
-    }
+
+    freeTrie(root);
 
     return 0;
 }
 
-int menu() {
-    int m;
-    do {
-        printf( "\t### Menu ###\n" );
-        printf( "\t1.Busca de polaridade\n" );
-        printf( "\t2.Edicao de polaridade\n" );
-        printf( "\t3.Salvamento de arquivo\n" );
-        printf( "\t4.Sair\n" );
-        printf( "Escolha: " );
-        scanf( "%d", &m );
-        getchar();
-    } while( m <= 0 || m > 4 );
-    return m;
-}
-
 Nodo* createTree() {
     Nodo *node = (Nodo *)malloc( sizeof(Nodo) );
-    node->numero = 1;
     node->end = false;
+    node->words = NULL;
     for ( int i = 0; i < AF; i++ ) {
         node->next[i] = NULL;
     }
     return node;
 }
 
+Palavras* createLista( char* word ) {
+    Palavras *p = (Palavras *)malloc( sizeof(Palavras) );
+    strcpy( p->word, word );
+    p->next = NULL;
+    return p;
+}
+
 void freeTrie( Nodo* node ) {
-    if (!node) { 
+    if (!node) {
         return;
     }
     for (int i = 0; i < AF; i++) {
         freeTrie(node->next[i]);
     }
+
+    Palavras* temp = node->words;
+    while (temp) {
+        Palavras* aux = temp;
+        temp = temp->next;
+        free(aux);
+    }
     free(node);
 }
 
-char digitosEspecias( char l ) {
-    switch (l) {
+char digitosEspeciais( unsigned char *p, int *bytes_consumidos ) {
+    unsigned char l = p[0];
+    *bytes_consumidos = 1;
+    
+    if ( l == 0xC3 ) {
+        unsigned char l2 = p[1];
+        *bytes_consumidos = 2;
+        
+    switch (l2) {
 
     case 0x81: return 'a'; // Á
     case 0xA1: return 'a'; // á
@@ -181,42 +156,39 @@ char digitosEspecias( char l ) {
     case 0xB1: return 'n'; // ñ
     case 0x91: return 'n'; // Ñ
 
-    case 0x41: return 'a'; // A
-    case 0x42: return 'b'; // B
-    case 0x43: return 'c'; // C
-    case 0x44: return 'd'; // D
-    case 0x45: return 'e'; // E
-    case 0x46: return 'f'; // F
-    case 0x47: return 'g'; // G
-
     }
-
-    return l;
+}
+    
+    if ( l >= 'A' && l <= 'Z' ) {
+        return l + 32;
+    }
+    if ( l >= 'a' && l <= 'z' ) {
+        return l;
+    }
+    return 0;
 }
 
-int cDigito( char ori ) {
-    char l = digitosEspecias( ori );
-
+int cDigito( char l ) {
     if ( l == 'a' || l == 'b' || l == 'c' ) {
-            return 2;
+        return 2;
+    } else {
+        if ( l == 'd' || l == 'e' || l == 'f' ) {
+            return 3;
         } else {
-            if ( l == 'd' || l == 'e' || l == 'f' ) {
-                return 3;
+            if ( l == 'g' || l == 'h' || l == 'i' ) {
+                return 4;
             } else {
-                if ( l == 'g' || l == 'h' || l == 'i' ) {
-                    return 4;
+                if ( l == 'j' || l == 'k' || l == 'l' ) {
+                    return 5;
                 } else {
-                    if ( l == 'j' || l == 'k' || l == 'l' ) {
-                        return 5;
+                    if ( l == 'm' || l == 'n' || l == 'o' ) {
+                        return 6;
                     } else {
-                        if ( l == 'm' || l == 'n' || l == 'o' ) {
-                            return 6;
+                        if ( l == 'p' || l == 'q' || l == 'r' || l == 's') {
+                            return 7;
                         } else {
-                            if ( l == 'p' || l == 'q' || l == 'r' || l == 's') {
-                                return 7;
-                            } else {
-                                if ( l == 't' || l == 'u' || l == 'v' ) {
-                                    return 8;
+                            if ( l == 't' || l == 'u' || l == 'v' ) {
+                                return 8;
                                 }
                             }
                         }
@@ -224,45 +196,67 @@ int cDigito( char ori ) {
                 }
             }
         }
+    return 9;
 }
 
 void insert( Nodo* root, char* word ) {
     Nodo *puppet = root;
-    int digito;
-    char *palavra;
-    strcmp(palavra, word); 
+    unsigned char* p = (unsigned char*)word;
+    int bytes;
+    char letra;
 
-    while ( *word ) {
-        digito = cDigito( *word );
+    while ( *p ) {
+        letra = digitosEspeciais( p, &bytes );
+        p += bytes;
+        if ( !letra ) {
+            continue;
+        } 
 
-        if ( !puppet->next[digito] ) {
-            puppet->next[digito] = (Nodo *)malloc( sizeof(Nodo) );
-            puppet->next[digito]->numero = digito;
-            puppet->next[digito]->end = false;
-
-            for ( int i = 0; i < AF; i++ ) {
-                puppet->next[digito]->next[i] = NULL;
-            }
+        int dig = cDigito(letra);
+        if (dig == 0) {
+            continue;
         }
-        puppet = puppet->next[digito];
-        word++;
+
+        if (!puppet->next[dig]) {
+            puppet->next[dig] = createTree();
+        }
+        puppet = puppet->next[dig];
     }
-    strcmp(puppet->word, palavra); 
+
     puppet->end = true;
+
+    Palavras* nova = createLista( word );
+    nova->next = puppet->words;
+    puppet->words = nova;
 }
 
 Nodo* search( Nodo* root, char* word ) {
     Nodo* puppet = root;
 
-    while ( *word ) {
-        unsigned char l = (unsigned char)*word;
-        if ( !puppet->next[l] ) {
+    while (*word) {
+        int d = *word - '0';
+        if ( d < 0 || d >= AF || !puppet->next[d] ){
             return NULL;
         }
-        puppet = puppet->next[l];
+        puppet = puppet->next[d];
         word++;
     }
-   
-    return puppet;    
+    return puppet;
 }
 
+void listar( Nodo* root ) {
+    if (!root) {
+        return;
+    }
+    
+    Palavras* p;
+    for ( p = root->words; p != NULL; p = p->next ) {
+        printf( "%s\n", p->word );
+    }
+
+    for ( int i = 0; i < AF; i++ ) {
+        if (root->next[i]) {
+            listar( root->next[i] );
+        }
+    }
+}
