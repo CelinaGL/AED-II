@@ -4,22 +4,23 @@
 #include <math.h>
 #include <stdbool.h>
 
-#define TAM_HASH 60000
+#define TAM_HASH 5000000
 #define P 31
-#define ASCII 256
 
 struct Node{
     char key[100];
     char inf[50];
-    int marcador; //Nunca ocupada = 1 || Ocupada = 0 || Removida = -1
+    int marcador; //Nunca ocupada = 0 || Ocupada = 1 || Removida = -1
 };
 typedef struct Node Nodo;
 
 long long primaria( char *word );
 void insert( Nodo* hash, long long key, char* word, char* inf );
+Nodo* criaHash();
+bool search( Nodo* hash, char *word );
 
 int main() {
-    Nodo hash[TAM_HASH];
+    Nodo* hash = (Nodo*)malloc( sizeof(Nodo) * TAM_HASH );
     FILE* arquivo;
     char linha[100], word[100], inf[100];
     long long key;
@@ -37,46 +38,61 @@ int main() {
         
     }
     fclose(arquivo);*/
-
-    scanf("%[^,]s,%[^\n]s", word, inf);
+    criaHash( hash );
+    scanf("%[^,],%[^\n]", word, inf);
     key = primaria( word );
     insert( hash, key, word, inf );
+    printf( "Inserindo: %s, %s\n", word, inf );
 
-    
+    if ( search( hash, word ) ) {
+        printf("Ta na hash");
+    } else {
+        printf("Nao ta na hash");
+    }
 
+    free(hash);
     return 0;
 }
 
-void criaHash( Nodo hash[TAM_HASH] ){
-
-    for( int i = 0; i < TAM_HASH; i++ ){
-        hash[i].marcador = 1;
+Nodo* criaHash( Nodo* hash ){
+    Nodo* puppet = hash;
+    for( double i = 0; i < TAM_HASH; i++ ) {
+        puppet->marcador = 0;
+        puppet++;
     }
-
 }
 
 long long primaria( char *word ){
     //somatorio até n - 1 das (letras segundo a tabela ascii * P elevado a i) mod(%) TAM_HASH
-    long long k;
-    int num, i = 0;
+    long long num, pot = 1, k = 0;
     
     while ( *word ) {
-        num = *word;
-        k = num * pow(P, i);
+       num = *word;
+
+        k = (k + (num * pot)) % TAM_HASH;  
+        pot *= P;        // atualiza a potência de P
+
         word++;
-        i++;
     }
 
-    k = k % TAM_HASH;
     return k;
 }
 
 void insert( Nodo* hash, long long key, char* word, char* inf ) {
-    hash[key].marcador = 0;
-    strcpy( hash[key].key, word );
-    strcpy( hash[key].inf, inf );
+    Nodo* puppet = (Nodo *)(hash) + key;
+    if ( puppet->marcador != 1 ) { 
+    puppet->marcador = 1;
+    strcmp( puppet->key, word );
+    strcmp( puppet->inf, inf );
+}
 }
 
-bool search( Nodo* hash ){
-
+bool search( Nodo* hash, char *word ){
+    long long key = primaria( word );
+    Nodo* puppet = (Nodo *)(hash) + key;
+    
+    if ( puppet->marcador == 1 ) {
+        return true;
+    }
+    return false;
 }
