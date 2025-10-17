@@ -1,65 +1,76 @@
+//Não consegui terminar a função de reHash a tempo, ela esta comentada no final do código
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-#define TAM_HASH 500000
+#define TAM_HASH 100003
 #define P 31
 
 struct Node{
-    char key[100];
-    char inf[50];
+    unsigned char key[100];
+    unsigned char inf[50];
     int marcador; //Nunca ocupada = 0 || Ocupada = 1 || Removida = -1
 };
 typedef struct Node Nodo;
 
-long long primaria( char *word );
-long long secundaria( char* word );
-void insert( Nodo* hash, char* word, char* inf );
+long long primaria( unsigned char *word );
+long long secundaria( unsigned char* word );
+void insert( Nodo* hash, unsigned char* word, unsigned char* inf, long long* coli );
 void criaHash( Nodo* hash );
-void search( Nodo* hash, char *word );
-long long colisao( long long k1, char* word, Nodo* hash );
+void search( Nodo* hash, unsigned char *word );
+long long colisao( long long k1, unsigned char* word, Nodo* hash, long long* coli );
+void remover( Nodo* hash, unsigned char *word );
+//Nodo* reHash( Nodo* hash, long long novoT );
 int menu();
 
 int main() {
     Nodo* hash = (Nodo*)malloc( sizeof(Nodo) * TAM_HASH );
     FILE* arquivo;
-    char linha[100], word[100], inf[100];
+    unsigned char linha[200], word[200], inf[200];
+    long long coli = 0;
 
     criaHash( hash );
+    if (hash == NULL) {
+        printf("Erro ao alocar memoria\n");
+        return 1;
+    }
 
-    /*arquivo = fopen("lexico_v3.0.txt", "r");
-    while ( fgets( linha, sizeof(linha), arquivo ) ) {
-        int t = strlen(linha);
+    arquivo = fopen("lexico_v3.0.txt", "r");
+    while ( fgets( (char *)linha, sizeof(linha), arquivo ) ) {
+        size_t t = strlen((char *)linha);
         linha[t - 1] = '\0';
 
-        sscanf(linha, "%99[^,],%s", word, inf);
-        key = primaria( word );
+        sscanf((char *)linha, "%99[^,],%s", word, inf);
 
-        printf( "Inserindo: %s, %s\n", word, inf );
-        insert( hash, key, word, inf );
+        //printf( "Inserindo: %s, %s\n", word, inf );
+        insert( hash, word, inf, &coli );
         
     }
-    fclose(arquivo);*/
+    fclose(arquivo);
+
+    printf("Colisoes: %lld\n", coli);
 
     for ( ; ; ) {
         int m = menu();
         switch ( m ) {
             case 1: {
-                printf("Insira a palavra e as informacoes entre virgulas: ");
+                printf("Digite a palavra e as informacoes entre virgulas: ");
                 scanf("%[^,],%[^\n]", word, inf);
-                insert( hash, word, inf );
+                insert( hash, word, inf, &coli );
                 break;
             }
 
             case 2: {
-                printf("Insira a palavra e as informacoes entre virgulas: ");
-                scanf("%[^,],%[^\n]", word, inf);
+                printf("Digite a palavra: ");
+                scanf("%[^\n]", word);
                 search( hash, word );
                 break;
             }
 
             case 3: {
-                
+                printf("Digite a palavra: ");
+                scanf("%[^\n]", word);
+                remover( hash, word );
                 break;
             }
         
@@ -76,13 +87,13 @@ int main() {
 
 void criaHash( Nodo* hash ){
     Nodo* puppet = hash;
-    for( double i = 0; i < TAM_HASH; i++ ) {
+    for( long long i = 0; i < TAM_HASH; i++ ) {
         puppet->marcador = 0;
         puppet++;
     }
 }
 
-long long primaria( char* word ){
+long long primaria( unsigned char* word ){
     //somatorio até n - 1 das (letras segundo a tabela ascii * P elevado a i) mod(%) TAM_HASH
     long long num, pot = 1, k = 0;
 
@@ -90,7 +101,7 @@ long long primaria( char* word ){
         num = *word;
 
         k = (k + ((num * pot) % TAM_HASH )) % TAM_HASH;
-        pot *= P;
+        pot = (pot * P) % TAM_HASH;
 
         word++;
     }
@@ -98,7 +109,7 @@ long long primaria( char* word ){
     return k;
 }
 
-long long secundaria( char* word ) {
+long long secundaria( unsigned char* word ) {
     long long k = 0, num;
 
     while ( *word ) {
@@ -112,77 +123,105 @@ long long secundaria( char* word ) {
     return k;
 }
 
-long long colisao( long long k1, char* word, Nodo* hash ) {
+long long colisao( long long k1, unsigned char* word, Nodo* hash, long long* coli ) {
     long long t = 1;
     Nodo* puppet = (Nodo *)(hash) + k1;
-    long long indice, k2 = secundaria(word);
+    long long indice = k1, k2 = secundaria(word);
+    if (k2 == 0) {
+        k2 = 1;
+    }
 
-    printf( "Colisoes:\n" );
-    while ( puppet->marcador == 1 && t < TAM_HASH ) {
-        printf("%I64d\n", t);//tava dando "erro" se fosse %lld
+    while ( puppet->marcador == 1 && t < TAM_HASH  ) {
         indice = ( k1 + ( ( t * k2 ) % TAM_HASH ) ) % TAM_HASH;
         puppet = (Nodo *)(hash) + indice;
         t++;
+        (*coli)++;
     }
+
     /*if ( t == TAM_HASH ) {
-        
+        rehash++;
+        hash = reHash(hash, TAM_HASH * rehash );
     }*/
 
     return indice;
 }
 
-void insert( Nodo* hash, char* word, char* inf ) {
+void insert( Nodo* hash, unsigned char* word, unsigned char* inf, long long* coli ) {
     long long key = primaria( word );
     Nodo* puppet = (Nodo *)(hash) + key;
 
     if ( puppet->marcador != 1 ) { 
         puppet->marcador = 1;
-        //printf( "Marcador = %d\n", puppet->marcador );
-        strcpy( puppet->key, word );
-        //printf( "Word = %s\n", puppet->key );
-        strcpy( puppet->inf, inf );
-        //printf( "Inf = %s", puppet->inf );
+        strcpy( (char *)puppet->key, (char *)word );
+        strcpy( (char *)puppet->inf, (char *)inf );
         return;
     } else {
-        key = colisao( key, word, hash );
+        key = colisao( key, word, hash, coli );
         puppet = (Nodo *)(hash) + key;
 
         puppet->marcador = 1;
-        //printf( "Marcador = %d\n", puppet->marcador );
-        strcpy( puppet->key, word );
-        //printf( "Word = %s\n", puppet->key );
-        strcpy( puppet->inf, inf );
-        //printf( "Inf = %s", puppet->inf );
+        strcpy( (char *)puppet->key, (char *)word );
+        strcpy( (char *)puppet->inf, (char *)inf );
         return;
     }
 
 }
 
-void search( Nodo* hash, char *word ){
-    long long key = primaria( word );
-    Nodo* puppet = hash + key;
-    
-    if ( puppet->marcador == 1 ) { 
-        printf( "Word = %s\n", puppet->key );
-        printf( "Inf = %s", puppet->inf );
-        return;
-    } else {
-        key = colisao( key, word, hash );
-        puppet = hash + key;
-        printf( "Word = %s\n", puppet->key );
-        printf( "Inf = %s", puppet->inf );
-        return;
+void search( Nodo* hash, unsigned char *word ){
+    long long k1 = primaria(word), k2 = secundaria(word);
+    long long i = 0, indice = 0;
+    if (k2 == 0) {
+        k2 = 1;
     }
 
-    printf( "Nao ta na hash" );
+    while (i < TAM_HASH) {
+        indice = ( k1 + (i * k2)% TAM_HASH ) % TAM_HASH;
+        Nodo* puppet = hash + indice;
+
+        if ( puppet->marcador == 0 ) {
+            printf("Nao ta na hash\n");
+            return;
+        }
+
+        if ( puppet->marcador == 1 && strcmp((char *)puppet->key, (char *)word) == 0 ) {
+            printf("Word = %s\n", puppet->key);
+            printf("Inf = %s\n", puppet->inf);
+            return;
+        }
+
+        i++;
+    }
+
+    printf("Nao ta na hash\n");
 }
 
-void remover( Nodo* hash, char* word ) {
-    long long key = primaria( word );
-}
+void remover( Nodo* hash, unsigned char *word ){
+    long long k1 = primaria(word), k2 = secundaria(word);
+    long long i = 0, indice;
+    if (k2 == 0) {
+        k2 = 1;
+    }
 
-Nodo* realocHash( Nodo* hash ) {
-    
+    while (i < TAM_HASH) {
+        indice = (k1 + i * k2) % TAM_HASH;
+        Nodo* puppet = hash + indice;
+
+        if ( puppet->marcador == 0 ) {
+            printf("Nao ta na hash\n");
+            return;
+        }
+
+        if ( puppet->marcador == 1 && strcmp((char *)puppet->key, (char *)word) == 0 ) {
+            puppet->marcador = -1;
+            printf("Palavra removida\n");
+
+            return;
+        }
+
+        i++;
+    }
+
+    printf("Nao ta na hash\n");
 }
 
 int menu() {
@@ -201,17 +240,24 @@ int menu() {
 }
 
 /*
-    scanf("%[^,],%[^\n]", word, inf);
-    insert( hash, word, inf );
-    printf( "Inserindo: %s, %s\n", word, inf );
+Nodo* reHash( Nodo* hash, long long novoT ) {
+    Nodo* novaHash = (Nodo*)malloc( sizeof(Nodo) * (size_t)novoT );
+    long long coli = 0, t = 0;
+    if (!novaHash) {
+        printf("Erro de alocacao de memoria\n");
+        return hash; 
+    }
+    criaHash( novaHash );
 
-    search( hash, word );
-
-    printf("\n");
-    getchar();
-    scanf("%[^,],%[^\n]", word, inf);
-    insert( hash, word, inf );
-    printf( "Inserindo: %s, %s\n", word, inf );
-
-    search( hash, word );
-    */ 
+    Nodo* puppet = hash;
+    while ( t  < (novoT - TAM_HASH) ) {
+        insert(novaHash, puppet->key, puppet->inf, &coli);
+        t++;
+        puppet++;
+    }
+    printf("Colisoes: %lld\n", coli);
+    free(hash);
+        
+    return novaHash;
+}
+*/    
