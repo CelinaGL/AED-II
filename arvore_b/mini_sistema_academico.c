@@ -7,21 +7,18 @@
 #define FILHOS ( CHAVES + 1 )
 
 typedef struct {
-    int matricula; //Chave Primária
-    char nome[100];
-    int removido;
-}Aluno;
-
-typedef struct {
     int id;
     long pos;
-    char removido;
-}IndexAluno;
+}Index;
+
+typedef struct {
+    int matricula; //Chave Primária
+    char nome[100];
+}Aluno;
 
 typedef struct {
     int codigo; //Chave Primária
     char nome[100];
-    int removido;
 }Disciplinas;
 
 typedef struct {
@@ -29,16 +26,15 @@ typedef struct {
     int matricula_aluno; //Chave Estrangeira
     int codigo_disciplina; //Chave Estrangeira
     float media;
-    int removido;
 }Matriculas;
 
 typedef struct {
-    int n; //numero de chaves
+    int n; //numero de chaves na página atualmente
     int folha; //0 = nó interno || 1 = folha
-    int ids[CHAVES];
-    int removido[CHAVES]; //0 = não removido || 1 = removido
-    long long p[CHAVES]; //posição das chaves
-    long long filhos[FILHOS]; //posição dos filhos
+    int id[CHAVES];
+    long long pos[CHAVES]; //posição das chaves
+    Pagina* filho[FILHOS];
+    //long long filhos[FILHOS]; //posição dos filhos
 }Pagina;
 
 typedef struct {
@@ -50,7 +46,7 @@ void menuPrincipal();
 void menuAlunos();
 void menuDisciplinas();
 void menuMatriculas();
-void adicionar_indice(int id, long pos);
+void addChave_naoCheio( Pagina* p, int id, long long dados );
 void addAluno();
 
 
@@ -199,11 +195,83 @@ void menuMatriculas() {
     }
 }
 
-void adicionar_indice(int id, long pos) {
-    FILE *fp = fopen("alunos.idx", "ab");
-    IndexAluno idx = { id, pos, 0 };
-    fwrite(&idx, sizeof(IndexAluno), 1, fp);
-    fclose(fp);
+Pagina* criaPagina( int folha ) {
+    Pagina* p = ( Pagina * )malloc( sizeof(Pagina) );
+    p->folha = folha;
+    p->n = 0;
+
+    for ( int i = 0; i < CHAVES; i++ ) {
+        p->id[i] = 0;
+        p->pos[i] = -1;
+    }
+
+    for ( int i = 0; i < FILHOS; i++ ) {
+        p->filho[i] = NULL;
+    }
+
+    return p;
+}
+
+void dividirPag( Pagina* p, Pagina* f, int posi ){
+    int j = 0;
+    Pagina* novaP = criaPagina( f->folha );
+    novaP->n = MIN_CHAVES; 
+
+    for ( int i = MIN_CHAVES; i < CHAVES; i++ ) {
+        novaP->id[j] = f->id[i];
+        novaP->pos[j] = f->pos[i];
+        remover(i);
+
+        if ( f->folha == 0 ) {
+            novaP->filho[j] = f->filho[i];
+        }
+        j++;
+    }
+    f->n = MIN_CHAVES;
+    
+    for( int i = p->n - 1; posi <= i; i-- ) {
+        p->filho[i + 1] = p->filho[i];
+        p->id[i + 1] = p->id[i];
+        p->pos[i + 1] = p->pos[i];
+    }
+    p->filho[posi + 1] = novaP;
+    
+    p->id[]
+
+
+
+}
+
+void addChave_naoCheio( Pagina* p, int id, long long dados ) {
+    int i = p->n - 1;
+    if ( p->folha == 1 ) { 
+        while ( i != -1 && id < p->id[i] ) {
+            p->id[i + 1] = p->id[i];
+            p->pos[i + 1] = p->pos[i];
+            i--;
+        }
+
+        i++;
+        p->id[i] = id;
+        p->pos[i] = dados;
+        p->n++;
+
+    } else {
+        while ( i != -1 && id < p->id[i] ) {
+            i--;
+        }
+
+        if ( p->filho[i]->n == CHAVES ) {
+            dividirPag( p, p->filho[i], i );
+        }
+
+        
+    }
+
+}
+
+void inserir() {
+
 }
 
 void addAluno() { 
@@ -220,21 +288,39 @@ void addAluno() {
     getchar();
     fgets( a.nome, 100, stdin );
     a.nome[strcspn(a.nome, "\n")] = '\0';
-    a.removido = 0;
 
-    long pos = ftell(arquivo);
+    long long pos = ftell(arquivo);
     fwrite( &a, sizeof(Aluno), 1, arquivo );
     fclose(arquivo);
 
-    adicionar_indice(a.matricula, pos);
+    addChave( a.matricula, pos );
 
-    printf( "Aluno inserido com sucesso!\n" );
+    printf( "Aluno inserido\n" );
 }
 
 /*
-static long long tam_arquivo(FILE *arquivo) {
-    fseek(arquivo, 0, SEEK_END);
-    long long fim = ftell(arquivo);
-    return fim;
-}
+
+//if ( id > p->id[i] ) {
+           // i++;
+        //}
+
+        //addChave_naoCheio( p->filho[i], id, dados );
+
+
+if ( f->id[MIN_CHAVES] < id && id < novaP->id[0] ) {
+        p->n++;
+        p->id[p->n - 1] = id;
+        p->pos[p->n - 1] = dados;
+
+    } else if ( f->id[MIN_CHAVES] < novaP->id[0] && novaP->id[0] < id ) {       
+        p->n++;
+        p->id[p->n - 1] = novaP->id[0];
+        p->pos[p->n - 1] = novaP->pos[0];
+
+    } else if ( id < f->id[MIN_CHAVES] && f->id[0] < novaP->id[0] ) {
+        p->n++;
+        p->id[p->n - 1] = f->id[0];
+        p->pos[p->n - 1] = f->pos[0];
+    }
+
 */
