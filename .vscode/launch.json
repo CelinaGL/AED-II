@@ -8,8 +8,8 @@
       "args": [],
       "stopAtEntry": false,
       "externalConsole": true,
-      "cwd": "c:/rep_vscode/AED-II/tabela_hash",
-      "program": "c:/rep_vscode/AED-II/tabela_hash/build/Debug/outDebug",
+      "cwd": "c:/rep_vscode/AED-II/arvore_b",
+      "program": "c:/rep_vscode/AED-II/arvore_b/build/Debug/outDebug",
       "MIMode": "gdb",
       "miDebuggerPath": "gdb",
       "setupCommands": [
