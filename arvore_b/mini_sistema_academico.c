@@ -212,34 +212,58 @@ Pagina* criaPagina( int folha ) {
     return p;
 }
 
-void dividirPag( Pagina* p, Pagina* f, int posi ){
-    int j = 0;
+void dividirPag( Pagina* p, Pagina* f, int posi, int id, long long dados ){
     Pagina* novaP = criaPagina( f->folha );
-    novaP->n = MIN_CHAVES; 
+    int i, j;
+    novaP->n = MIN_CHAVES;
+    int tempIds[CHAVES + 1];
+    long long tempDados[CHAVES + 1];
+    Pagina* tempFilhos[FILHOS];
 
-    for ( int i = MIN_CHAVES; i < CHAVES; i++ ) {
-        novaP->id[j] = f->id[i];
-        novaP->pos[j] = f->pos[i];
-        remover(i);
+    for ( i = 0; i < CHAVES; i++ ) {
+        tempIds[i] = f->id[i];
+        tempDados[i] = f->pos[i];
+    }
 
-        if ( f->folha == 0 ) {
-            novaP->filho[j] = f->filho[i];
+    int k = CHAVES;
+    while ( k > 0 && id < tempIds[k - 1] ) {
+        tempIds[k] = tempIds[k - 1];
+        tempDados[k] = tempDados[k - 1];
+    }
+    tempIds[k] = id;
+    tempDados[k] = dados;
+
+    if ( f->folha == 0 ) {
+        for ( i = 0; i <= CHAVES; i++ ) {
+            tempFilhos[i] = f->filho[i];
         }
+        tempFilhos[k + 1] = f->filho[CHAVES + 1]; 
+    }
+
+    int mediana = ( CHAVES + 1 ) / 2;
+    int sobeId = tempIds[mediana];
+    long long sobeDados = tempDados[mediana];
+
+    f->n = mediana;
+    for ( i = 0; i < mediana - 1; i++ ) {
+        f->id[i] = tempIds[i];
+        f->pos[i] = tempDados[i];
+    }
+
+    novaP->n = mediana;
+    j = mediana + 1;
+    for ( i = 0; i < mediana - 1; i++ ) {
+        novaP->id[i] = tempIds[j];
+        novaP->pos[i] = tempDados[j];
         j++;
     }
-    f->n = MIN_CHAVES;
     
-    for( int i = p->n - 1; posi <= i; i-- ) {
+    for( i = p->n - 1; posi <= i; i-- ) {
         p->filho[i + 1] = p->filho[i];
         p->id[i + 1] = p->id[i];
         p->pos[i + 1] = p->pos[i];
     }
     p->filho[posi + 1] = novaP;
-    
-    p->id[]
-
-
-
 }
 
 void addChave_naoCheio( Pagina* p, int id, long long dados ) {
@@ -262,7 +286,7 @@ void addChave_naoCheio( Pagina* p, int id, long long dados ) {
         }
 
         if ( p->filho[i]->n == CHAVES ) {
-            dividirPag( p, p->filho[i], i );
+            dividirPag( p, p->filho[i], i, id, dados );
         }
 
         
@@ -323,4 +347,16 @@ if ( f->id[MIN_CHAVES] < id && id < novaP->id[0] ) {
         p->pos[p->n - 1] = f->pos[0];
     }
 
+
+    for ( i = MIN_CHAVES; i < CHAVES; i++ ) {
+        novaP->id[j] = f->id[i];
+        novaP->pos[j] = f->pos[i];
+        remover(i);
+
+        if ( f->folha == 0 ) {
+            novaP->filho[j] = f->filho[i];
+        }
+        j++;
+    }
+    f->n = MIN_CHAVES;
 */
