@@ -7,11 +7,6 @@
 #define FILHOS ( CHAVES + 1 )
 
 typedef struct {
-    int id;
-    long pos;
-}Index;
-
-typedef struct {
     int matricula; //Chave Primária
     char nome[100];
 }Aluno;
@@ -34,32 +29,41 @@ typedef struct {
     int id[CHAVES];
     long long pos[CHAVES]; //posição das chaves
     //Pagina* filho[FILHOS];
-    long int filhos[FILHOS]; //posição dos filhos
+    long long filhos[FILHOS]; //posição dos filhos
 }Pagina;
 
-void menuPrincipal();
-void menuAlunos();
+void menuPrincipal( FILE* indiceAlunos, FILE* dadosAlunos );
+void menuAlunos( FILE* indice, FILE* dados );
 void menuDisciplinas();
 void menuMatriculas();
 Pagina* criaPagina( int folha );
-long abreIndice( FILE* indice );
-void dividirPag( long posiP, long posiF, int posi, int id, long long dados, FILE* indice );
-void addChave_naoCheio( long posi, int id, long long dados, FILE* indice );
-long inserir( FILE* indice, long posiRaiz, int id, long long dados );
-void addAluno( FILE* arquivo, FILE* indice, long* root );
+long long abreIndice( FILE* indice );
+void dividirPag( long long posiP, long long posiF, int posi, FILE* indice );
+void addChave_naoCheio( long long posi, int id, long long dados, FILE* indice );
+long long inserir( FILE* indice, long long posiRaiz, int id, long long dados );
+void addAluno( FILE* arquivo, FILE* indice, long long* root );
 void imprimeAluno(FILE *dados, long long pos);
-void imprimePagina(FILE *indice, FILE *dados, long long posPag);
-void imprimirAlunos(FILE *indice, FILE *dados, long long root);
-
-
+void imprimePagAluno(FILE *indice, FILE *dados, long long posPag);
 
 int main() {
-    menuPrincipal();
+    printf("DEBUG: sizeof(Aluno)=%zu, sizeof(Pagina)=%zu, sizeof(long long)=%zu\n",
+       sizeof(Aluno), sizeof(Pagina), sizeof(long long));
+
+    FILE *indiceAlunos = fopen("alunos.idx", "r+b");
+    if (!indiceAlunos) indiceAlunos = fopen("alunos.idx", "w+b");
+
+    FILE *dadosAlunos = fopen("alunos.data", "r+b");
+    if (!dadosAlunos) dadosAlunos = fopen("alunos.data", "w+b");
+    
+    menuPrincipal( indiceAlunos, dadosAlunos );
+
+    fclose(indiceAlunos);
+    fclose(dadosAlunos);
     
     return 0;
 }
 
-void menuPrincipal() {
+void menuPrincipal( FILE* indiceAlunos, FILE* dadosAlunos ) {
     int m = 0;
     for ( ;; ) {
         do {
@@ -79,7 +83,7 @@ void menuPrincipal() {
     
         switch (m) {
         case 1:
-            menuAlunos();
+            menuAlunos( indiceAlunos, dadosAlunos );
             break;
         case 2:
             menuDisciplinas();
@@ -95,7 +99,7 @@ void menuPrincipal() {
     }
 }
 
-void menuAlunos() {
+void menuAlunos( FILE* indice, FILE* dados ) {
     int m;
     
     do {
@@ -115,22 +119,24 @@ void menuAlunos() {
         }
     } while( m <= 0 || m > 5 );
 
-    FILE *indice = fopen("alunos.idx", "r+b");
-    if (!indice) indice = fopen("alunos.idx", "w+b");
-    if (!indice) { printf("Erro ao abrir arquivo de indice\n"); return; }
-
-    FILE *dados = fopen("alunos.data", "r+b");
-    if (!dados) dados = fopen("alunos.data", "w+b");
-    if (!dados) { printf("Erro ao abrir arquivo de dados\n"); fclose(indice); return; }
-
-    long raiz = abreIndice( indice );
+    long long raiz = abreIndice( indice );
 
     switch (m) {
-        case 1:
+        case 1:{
             addAluno( dados, indice, &raiz );
+            fseek(indice, 0, SEEK_SET);
+            fwrite(&raiz, sizeof(long long), 1, indice);
+        }
             break;
-        case 2:
-            imprimirAlunos(indice, dados, raiz);
+        case 2:{
+            if ( raiz == -1 ) {
+                printf("Nenhum aluno cadastrado\n");
+                return;
+            }
+
+            printf( "---- LISTA DE ALUNOS ----\n" );
+            imprimePagAluno(indice, dados, raiz);
+        }
             break;
         case 3:
             break;
@@ -139,16 +145,10 @@ void menuAlunos() {
         case 5:{
             fseek( indice, 0, SEEK_SET );
             fwrite( &raiz, sizeof(long long), 1, indice );
-
-            fclose(indice);
-            fclose(dados);
             return;
             break;    
         }
     }
-
-
-    
 }
 
 void menuDisciplinas() {
@@ -235,7 +235,7 @@ Pagina* criaPagina( int folha ) {
     return p;
 }
 
-void dividirPag( long posiP, long  posiF, int posi, int id, long long dados, FILE* indice ) {
+void dividirPag( long long posiP, long long posiF, int posi, FILE* indice ) {
     Pagina p, f;
     fseek( indice, posiP, SEEK_SET );
     fread( &p, sizeof(Pagina), 1, indice );
@@ -248,28 +248,27 @@ void dividirPag( long posiP, long  posiF, int posi, int id, long long dados, FIL
     long long tempDados[CHAVES + 1];
     long tempFilhos[FILHOS]; 
 
-    for ( i = 0; i < CHAVES; i++ ) {
+    for ( i = 0; i < f.n; ++i ) {
         tempIds[i] = f.id[i];
         tempDados[i] = f.pos[i];
     }
 
-    int k = CHAVES;
+    if ( f.folha == 0 ) {
+        for ( i = 0; i <= FILHOS; i++ ) {
+            tempFilhos[i] = f.filhos[i];
+        }
+    }
+
+    /*int k = CHAVES;
     while ( k > 0 && id < tempIds[k - 1] ) {
         tempIds[k] = tempIds[k - 1];
         tempDados[k] = tempDados[k - 1];
         k--;// nao acredito q tinha faltado isso
     }
     tempIds[k] = id;
-    tempDados[k] = dados;
+    tempDados[k] = dados;*/
 
-    if ( f.folha == 0 ) {
-        for ( i = 0; i <= CHAVES; i++ ) {
-            tempFilhos[i] = f.filhos[i];
-        }
-        tempFilhos[k + 1] = f.filhos[CHAVES + 1]; 
-    }
-
-    int mediana = ( CHAVES + 1 ) / 2;
+    int mediana = f.n / 2;
     int sobeId = tempIds[mediana];
     long long sobeDados = tempDados[mediana];
 
@@ -328,7 +327,7 @@ void dividirPag( long posiP, long  posiF, int posi, int id, long long dados, FIL
 
 }
 
-void addChave_naoCheio( long posi, int id, long long dados, FILE* indice ) {
+void addChave_naoCheio( long long posi, int id, long long dados, FILE* indice ) {
     Pagina p;
     fseek( indice, posi, SEEK_SET );
     fread( &p, sizeof(Pagina), 1, indice );
@@ -353,40 +352,26 @@ void addChave_naoCheio( long posi, int id, long long dados, FILE* indice ) {
         while ( i >= 0 && id < p.id[i] ) {
             i--;
         }
+        int indiceFilho = i + 1;
+
         Pagina f;
-        fseek( indice, p.filhos[i], SEEK_SET );
+        fseek( indice, p.filhos[indiceFilho], SEEK_SET );
         fread( &f, sizeof(Pagina), 1, indice );
 
         if ( f.n == CHAVES ) {
-            dividirPag( posi, p.filhos[i], i, id, dados, indice );
+            dividirPag( posi, p.filhos[indiceFilho], indiceFilho, indice );
             fseek( indice, posi, SEEK_SET ); //CLARO Q N IA FUNCIONAR EU N TAVA ATUALIZANDO O PAI
             fread( &p, sizeof(Pagina), 1, indice );
 
-            if ( id > p.id[i] ) {
-                i++;
+            if ( id > p.id[indiceFilho] ) {
+                indiceFilho++;
             }
         }
-        addChave_naoCheio( p.filhos[i], id, dados, indice );
-    }
-        
-        /*while ( i != -1 && id < p->id[i] ) {
-            i--;
-        }
-
-        if ( p->filho[i]->n == CHAVES ) {
-            dividirPag( p, p->filho[i], i, id, dados );
-
-            if (id > p->id[i]){
-                i++;
-            }
-        }
-
-        addChave_naoCheio( p->filho[i], id, dados );
-        
-    }*/
+        addChave_naoCheio( p.filhos[indiceFilho], id, dados, indice );
+    }  
 }
 
-long inserir( FILE* indice, long posiRaiz, int id, long long dados ) {
+long long inserir( FILE* indice, long long posiRaiz, int id, long long dados ) {
     Pagina root;
     fseek( indice, posiRaiz, SEEK_SET );
     fread( &root, sizeof(Pagina), 1, indice );
@@ -405,25 +390,29 @@ long inserir( FILE* indice, long posiRaiz, int id, long long dados ) {
         Pagina pag;
         fseek( indice, posiNova, SEEK_SET );
         fread( &pag, sizeof(Pagina), 1, indice );
+        
         int dest;
         if (id > pag.id[0]) {
             dest = 1;   //direita
         } else {
             dest = 0;   //esquerda
         }
-
         addChave_naoCheio( pag.filhos[dest], id, dados, indice );
         fseek( indice, 0, SEEK_SET );
-        fwrite( &posiNova, sizeof(long), 1, indice );
+        fwrite( &posiNova, sizeof(long long), 1, indice );
 
         return posiNova;
     }
 
     addChave_naoCheio( posiRaiz, id, dados, indice );
+    fseek( indice, 0, SEEK_SET );
+    fwrite( &posiRaiz, sizeof(long long), 1, indice );
+
+    printf("DEBUG: inserir() terminou. root=%lld\n", posiRaiz);
     return posiRaiz;
 }
 
-void addAluno( FILE* arquivo, FILE* indice, long* root ) { 
+void addAluno( FILE* arquivo, FILE* indice, long long* root ) { 
     if ( !arquivo ) { 
         printf("Nao abriu"); 
         return; 
@@ -439,25 +428,27 @@ void addAluno( FILE* arquivo, FILE* indice, long* root ) {
 
     fseek( arquivo, 0, SEEK_END ); 
     long long pos = ftell( arquivo );
+    printf("DEBUG: aluno salvo em pos = %lld (mat=%d)\n", pos, a.matricula);
     fwrite( &a, sizeof(Aluno), 1, arquivo );
 
     *root = inserir( indice, *root, a.matricula, pos );
+    printf("DEBUG: root atualizada para %lld\n", *root);
     fseek(indice, 0, SEEK_SET);
-    fwrite(root, sizeof(long), 1, indice);
+    fwrite(root, sizeof(long long), 1, indice);
 
     printf( "Aluno inserido\n" );
 }
 
-long abreIndice( FILE* indice ) {
+long long abreIndice( FILE* indice ) {
     fseek( indice, 0, SEEK_END );
-    long tam = ftell( indice );
+    long long tam = ftell( indice );
     
-    if ( tam >= sizeof(long) ) {
-        long root;
+    if ( tam >= sizeof(long long) ) {
+        long long root;
         fseek(indice, 0, SEEK_SET);
-        fread( &root, sizeof(long), 1, indice );
+        fread( &root, sizeof(long long), 1, indice );
 
-        if (root < sizeof(long) || root >= tam) {
+        if (root < sizeof(long long) || root >= tam) {
             printf("Indice corrompido, recriando...\n");
         } else {
             return root;
@@ -465,21 +456,21 @@ long abreIndice( FILE* indice ) {
     }
 
     Pagina* raiz = criaPagina(1);
-    long pos;
+    long long pos;
     fseek( indice, 0, SEEK_SET );
-    long primeiro = -1;
-    fwrite( &primeiro, sizeof(long), 1, indice );
+    long long primeiro = -1;
+    fwrite( &primeiro, sizeof(long long), 1, indice );
 
     pos = ftell( indice );
     fwrite( raiz, sizeof(Pagina), 1, indice );
     fseek( indice, 0, SEEK_SET );
-    fwrite( &pos, sizeof(long), 1, indice );// é pra manter a posição da raiz no topo, vamo ver se funciona
+    fwrite( &pos, sizeof(long long), 1, indice );// é pra manter a posição da raiz no topo, vamo ver se funciona
 
     free(raiz);
     return pos;
 }
 
-void imprimeAluno(FILE *dados, long long pos) {
+void imprimeAluno( FILE *dados, long long pos ) {
     if (pos < 0) return;
 
     Aluno a;
@@ -487,41 +478,25 @@ void imprimeAluno(FILE *dados, long long pos) {
     fseek(dados, pos, SEEK_SET);
     fread(&a, sizeof(Aluno), 1, dados);
 
-        printf("Matricula: %d | Nome: %s\n", a.matricula, a.nome);
+    printf("Matricula: %d | Nome: %s\n", a.matricula, a.nome);
 }
 
-void imprimePagina(FILE *indice, FILE *dados, long long posPag) {
-    if (posPag <= 0) return;
+void imprimePagAluno( FILE *indice, FILE *dados, long long posPag ) {
+    if (posPag < 0) return;
 
     Pagina pag;
-
     fseek(indice, posPag, SEEK_SET);
     fread(&pag, sizeof(Pagina), 1, indice);
 
     int i;
+    for ( i = 0; i < pag.n; i++ ) {
 
-    // Percorre: filho[i], chave[i], filho[i+1]
-    for (i = 0; i < pag.n; i++) {
-
-        // primeiro o filho à esquerda
-        if (pag.filhos[i] > 0)
-            imprimePagina(indice, dados, pag.filhos[i]);
-
+        if (pag.filhos[i] >= 0){
+            imprimePagAluno( indice, dados, pag.filhos[i] );
+        }
+        imprimeAluno( dados, pag.pos[i] );
     }
 
-    // último filho à direita
-    if (pag.filhos[i] > 0)
-        imprimePagina(indice, dados, pag.filhos[i]);
+    if ( pag.filhos[i] >= 0 )
+        imprimePagAluno( indice, dados, pag.filhos[i] );
 }
-
-void imprimirAlunos(FILE *indice, FILE *dados, long long root) {
-    if (root <= 0) {
-        printf("Nenhum aluno cadastrado.\n");
-        return;
-    }
-
-    printf("---- LISTA DE ALUNOS ----\n");
-    imprimePagina(indice, dados, root);
-}
-
-
