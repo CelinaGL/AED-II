@@ -45,10 +45,12 @@ long long buscar( long long posi, int id, FILE* indice );
 void addAluno( FILE* arquivo, FILE* indice, long long* root );
 void imprimeAluno(FILE *dados, long long pos);
 void imprimePagAluno(FILE *indice, FILE *dados, long long posPag);
+void atualizarAluno( long long root, FILE* indice, FILE* dados );
 void addDisciplina( FILE* arquivo, FILE* indice, long long* root );
 void imprimeDisciplina( FILE *dados, long long pos );
 void imprimePagDisciplina( FILE *indice, FILE *dados, long long posPag );
 void addMatricula( FILE* arquivoM, FILE* indiceM, FILE* indiceA, FILE* indiceD, long long* root );
+void atualizarDisciplina( long long root, FILE* indice, FILE* dados );
 void imprimeMatricula( FILE *dados, long long pos );
 void imprimePagMatricula( FILE *indice, FILE *dados, long long posPag );
 void atualizarMedia( long long root, FILE* indice, FILE* dados );
@@ -152,14 +154,13 @@ void menuAlunos( FILE* indice, FILE* dados, FILE* indiceM , FILE* dadosM ) {
         printf( "\t1.Adicionar\n" );
         printf( "\t2.Listar\n" );
         printf( "\t3.Atualizar\n" );
-        printf( "\t4.Buscar\n" );
-        printf( "\t5.Deletar\n" );
-        printf( "\t6.Sair\n" );
+        printf( "\t4.Deletar\n" );
+        printf( "\t5.Sair\n" );
         printf( "Escolha: " );
         scanf( "%d", &m );
         getchar();
         
-        if ( m <= 0 || m > 6 ) {
+        if ( m <= 0 || m > 5 ) {
             printf( "Numero invalido, tente novamente\n" );
         }
     } while( m <= 0 || m > 6 );
@@ -183,9 +184,13 @@ void menuAlunos( FILE* indice, FILE* dados, FILE* indiceM , FILE* dadosM ) {
             imprimePagAluno( indice, dados, raiz );
             break;
         }
-        case 3:
+        case 3:{
+            atualizarAluno( raiz, indice, dados ); 
+            fseek( indice, 0, SEEK_SET );
+            fwrite( &raiz, sizeof(long long), 1, indice );
             break;
-        case 5: {
+        }
+        case 4: {
             long long raizM = abreIndice( indiceM );
             removerAluno( indice, indiceM, dadosM, &raiz, &raizM );
             fseek( indice, 0, SEEK_SET );
@@ -194,7 +199,7 @@ void menuAlunos( FILE* indice, FILE* dados, FILE* indiceM , FILE* dadosM ) {
             fwrite( &raizM, sizeof(long long), 1, indiceM );//esqueci de trocar indice por indiceM e ME FERREI TOTAL a msm coisa nas disciplinas 
             break;
         }
-        case 6:{
+        case 5:{
             fseek( indice, 0, SEEK_SET );
             fwrite( &raiz, sizeof(long long), 1, indice );
             return;
@@ -629,6 +634,37 @@ void imprimePagAluno( FILE *indice, FILE *dados, long long posPag ) {
         imprimePagAluno( indice, dados, pag.filhos[i] );
 }
 
+void atualizarAluno( long long root, FILE* indice, FILE* dados ) {
+    int id, validacao1;
+    long long posi;
+
+    do {
+        printf("Matricula: ");
+        validacao1 = scanf("%d", &id);
+        if ( id <= 0 || validacao1 != 1 ) {
+            printf( "Matricula invalida, tente novamente\n" );
+            while (getchar() != '\n');
+        }
+
+        posi = buscar( root, id, indice );
+        if ( posi == -1 ) {
+            printf( "Matricula nao existente, tente novamente\n" );
+        }
+    }while( id <= 0 || validacao1 != 1 || posi == -1 );
+
+    Aluno a;
+    fseek( dados, posi, SEEK_SET );
+    fread( &a, sizeof(Aluno), 1, dados );
+
+    printf("Novo nome: ");
+    getchar();
+    fgets( a.nome, 100, stdin );
+    a.nome[strcspn(a.nome, "\n")] = '\0';
+
+    fseek( dados, posi, SEEK_SET );
+    fwrite( &a, sizeof(Aluno), 1, dados );
+}
+
 void addDisciplina( FILE* arquivo, FILE* indice, long long* root ) { 
     if ( !arquivo ) { 
         printf("Nao abriu"); 
@@ -700,6 +736,37 @@ void imprimePagDisciplina( FILE *indice, FILE *dados, long long posPag ) {
 
     if ( pag.filhos[i] >= 0 )
         imprimePagDisciplina( indice, dados, pag.filhos[i] );
+}
+
+void atualizarDisciplina( long long root, FILE* indice, FILE* dados ) {
+    int id, validacao1;
+    long long posi;
+
+    do {
+        printf("Codigo: ");
+        validacao1 = scanf("%d", &id);
+        if ( id <= 0 || validacao1 != 1 ) {
+            printf( "Codigo invalido, tente novamente\n" );
+            while (getchar() != '\n');
+        }
+
+        posi = buscar( root, id, indice );
+        if ( posi == -1 ) {
+            printf( "Codigo nao existente, tente novamente\n" );
+        }
+    }while( id <= 0 || validacao1 != 1 || posi == -1 );
+
+    Disciplinas d;
+    fseek( dados, posi, SEEK_SET );
+    fread( &d, sizeof(Disciplinas), 1, dados );
+
+    printf("Novo nome: ");
+    getchar();
+    fgets( d.nome, 100, stdin );
+    d.nome[strcspn(d.nome, "\n")] = '\0';
+
+    fseek( dados, posi, SEEK_SET );
+    fwrite( &d, sizeof(Disciplinas), 1, dados );
 }
 
 void addMatricula( FILE* arquivoM, FILE* indiceM, FILE* indiceA, FILE* indiceD, long long* root ) { 
